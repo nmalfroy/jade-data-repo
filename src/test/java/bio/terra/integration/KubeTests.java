@@ -21,6 +21,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -103,27 +104,16 @@ public class KubeTests extends UsersBase {
             user, datasetId, arrayLoad);
 
         // let it run a few iterations
-        response  = dataRepoClient.waitForResponse(user, launchResponse,
-            BulkLoadArrayResultModel.class, 5);
+        // response  = dataRepoClient.waitForResponse(user, launchResponse, BulkLoadArrayResultModel.class, 5);
+        TimeUnit.SECONDS.sleep(10);
         // scale pods
-        KubernetesClientUtils.scaleDeployment("sh", 2);
+        KubernetesClientUtils.killPod("sh");
         // wait
-        try {
-            response  = dataRepoClient.waitForResponse(user, launchResponse,
-                BulkLoadArrayResultModel.class, 5);
-        } catch(IOException ex) {
-            logger.info("post scaling: Wait for response");
-            lastException = ex;
-        }
-
-        // scale back down
-        KubernetesClientUtils.scaleDeployment("sh", 1);
-
-        // Get actual response
-        for (int i = 0; i < 2; i++) {
+        TimeUnit.SECONDS.sleep(30);
+        /*for (int i = 0; i < 4; i++) {
             try {
                 response  = dataRepoClient.waitForResponse(user, launchResponse,
-                    BulkLoadArrayResultModel.class);
+                    BulkLoadArrayResultModel.class, 15);
                 break;
             } catch(IOException ex) {
                 logger.info("Try #{): Wait for response", i);
@@ -132,7 +122,9 @@ public class KubeTests extends UsersBase {
         }
         if (response == null && lastException != null){
             throw lastException;
-        }
+        }*/
+        response  = dataRepoClient.waitForResponse(user, launchResponse,
+            BulkLoadArrayResultModel.class);
 
 
         BulkLoadArrayResultModel result = dataRepoFixtures.checkBulkLoadArraySuccess(response);

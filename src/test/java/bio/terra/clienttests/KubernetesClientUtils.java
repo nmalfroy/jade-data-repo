@@ -199,6 +199,15 @@ public final class KubernetesClientUtils {
         }
     }
 
+    public static void killPod(String namespace) throws ApiException {
+        kubernetesClientObject.deleteCollectionNamespacedPod(namespace,
+            null, null,
+            null, null, null,
+            null, null, null,
+            null, null, null,
+            null, null, null);
+    }
+
     // example usage. need to be on the Broad VPN to talk to the dev cluster because of IP whitelist
     public static void main(String[] args) throws Exception {
         CoreV1Api k8sclient = KubernetesClientUtils.getKubernetesClientObject();
