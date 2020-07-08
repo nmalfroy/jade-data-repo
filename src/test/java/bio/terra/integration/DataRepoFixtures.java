@@ -440,11 +440,9 @@ public class DataRepoFixtures {
         return response.getResponseObject().get();
     }
 
-    public BulkLoadArrayResultModel bulkLoadArray(
-        TestConfiguration.User user,
-        String datasetId,
-        BulkLoadArrayRequestModel requestModel) throws Exception {
-
+    public DataRepoResponse<JobModel> postBulkLoadArrayRequest(TestConfiguration.User user,
+                                                               String datasetId,
+                                                               BulkLoadArrayRequestModel requestModel) throws Exception {
         String json = TestUtils.mapToJson(requestModel);
 
         DataRepoResponse<JobModel> launchResponse = dataRepoClient.post(
@@ -455,8 +453,10 @@ public class DataRepoFixtures {
         assertTrue("bulkLoadArray launch succeeded", launchResponse.getStatusCode().is2xxSuccessful());
         assertTrue("bulkloadArray launch response is present", launchResponse.getResponseObject().isPresent());
 
-        DataRepoResponse<BulkLoadArrayResultModel> response =
-            dataRepoClient.waitForResponse(user, launchResponse, BulkLoadArrayResultModel.class);
+        return launchResponse;
+    }
+
+    public BulkLoadArrayResultModel checkBulkLoadArraySuccess(DataRepoResponse<BulkLoadArrayResultModel> response) {
         if (response.getStatusCode().is2xxSuccessful()) {
             assertThat("bulkLoadArray is successful", response.getStatusCode(), equalTo(HttpStatus.OK));
             assertTrue("ingestFile response is present", response.getResponseObject().isPresent());
@@ -467,6 +467,21 @@ public class DataRepoFixtures {
             fail();
             return null; // Make findbugs happy
         }
+
+    }
+
+    public BulkLoadArrayResultModel bulkLoadArray(
+        TestConfiguration.User user,
+        String datasetId,
+        BulkLoadArrayRequestModel requestModel) throws Exception {
+
+        DataRepoResponse<JobModel> launchResponse = postBulkLoadArrayRequest(user, datasetId, requestModel);
+
+        DataRepoResponse<BulkLoadArrayResultModel> response =
+            dataRepoClient.waitForResponse(user, launchResponse, BulkLoadArrayResultModel.class);
+
+        return checkBulkLoadArraySuccess(response);
+
     }
 
     public DataRepoResponse<FileModel> getFileByIdRaw(

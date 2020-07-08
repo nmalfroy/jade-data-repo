@@ -19,6 +19,7 @@ import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Optional;
@@ -108,6 +109,52 @@ public class DataRepoClient {
             ex.printStackTrace();
             Thread.currentThread().interrupt();
             throw new IllegalStateException("unexpected interrupt waiting for response", ex);
+        }
+
+        if (jobModelResponse.getStatusCode() != HttpStatus.OK) {
+            throw new IllegalStateException("unexpected job status code: " + jobModelResponse.getStatusCode());
+        }
+
+        String location = getLocationHeader(jobModelResponse);
+        DataRepoResponse<T> resultResponse = get(user, location, responseClass);
+
+        return resultResponse;
+    }
+
+    public <T> DataRepoResponse<T> waitForResponse(TestConfiguration.User user,
+                                                   DataRepoResponse<JobModel> jobModelResponse,
+                                                   Class<T> responseClass,
+                                                   int secondsToWait) throws Exception {
+        final int initialSeconds = 1;
+        final int maxSeconds = 16;
+        int totalSleep = 0;
+
+        try {
+            int count = 0;
+            int sleepSeconds = initialSeconds;
+            while (jobModelResponse.getStatusCode() == HttpStatus.ACCEPTED && totalSleep < secondsToWait) {
+                String location = getLocationHeader(jobModelResponse);
+                logger.info("try #{} for {}", ++count, location);
+
+                TimeUnit.SECONDS.sleep(sleepSeconds);
+                totalSleep += sleepSeconds;
+                jobModelResponse = get(user, location, JobModel.class);
+
+                int nextSeconds = 2 * sleepSeconds;
+                sleepSeconds = (nextSeconds > maxSeconds) ? maxSeconds : nextSeconds;
+            }
+        } catch(IOException ex) {
+            logger.info("hitting IOException");
+            throw ex;
+        } catch (InterruptedException ex) {
+            logger.info("interrupted ex: {}", ex.getMessage());
+            ex.printStackTrace();
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("unexpected interrupt waiting for response", ex);
+        }
+
+        if (jobModelResponse.getStatusCode() == HttpStatus.ACCEPTED) {
+            return null;
         }
 
         if (jobModelResponse.getStatusCode() != HttpStatus.OK) {

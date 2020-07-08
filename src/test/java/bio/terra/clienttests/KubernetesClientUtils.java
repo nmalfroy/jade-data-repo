@@ -6,11 +6,16 @@ import com.google.auth.oauth2.ServiceAccountCredentials;
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.Configuration;
+import io.kubernetes.client.openapi.apis.AppsV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
+import io.kubernetes.client.openapi.models.V1Deployment;
+import io.kubernetes.client.openapi.models.V1DeploymentSpec;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodList;
 import io.kubernetes.client.util.ClientBuilder;
 import io.kubernetes.client.util.KubeConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -24,11 +29,17 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.Assert.assertEquals;
+
 
 public final class KubernetesClientUtils {
 
     private static GoogleCredentials applicationDefaultCredentials;
     private static CoreV1Api kubernetesClientObject;
+    private static AppsV1Api appsV1Api;
+    private static final Logger logger = LoggerFactory.getLogger(KubernetesClientUtils.class);
 
     private KubernetesClientUtils() { }
 
@@ -131,6 +142,8 @@ public final class KubernetesClientUtils {
         // object from the global configuration
         Configuration.setDefaultApiClient(client);
 
+        appsV1Api = new AppsV1Api(client);
+
         return new CoreV1Api();
     }
 
@@ -164,6 +177,26 @@ public final class KubernetesClientUtils {
         V1PodList list =
             k8sclient.listPodForAllNamespaces(null, null, null, null, null, null, null, null, null);
         return list.getItems();
+    }
+
+    public static void scaleDeployment(String namespace, int numberOfReplicas)
+        throws ApiException {
+        String deploymentName = namespace + "-jade-datarepo-api";
+        V1Deployment deploy =
+            appsV1Api.readNamespacedDeployment(
+                deploymentName, namespace, null, null, null);
+        logger.info("existing deploy replicas: {}", deploy.getSpec().getReplicas());
+        try {
+            V1DeploymentSpec newSpec = deploy.getSpec().replicas(numberOfReplicas);
+            V1Deployment newDeploy = deploy.spec(newSpec);
+            appsV1Api.replaceNamespacedDeployment(
+                deploymentName, namespace, newDeploy, null, null, null);
+            int newReplicaCount = newDeploy.getSpec().getReplicas();
+            logger.info("new deploy replicas: {}", newReplicaCount);
+            assertEquals("Deployment should have been successfully scaled", numberOfReplicas, newReplicaCount);
+        } catch (ApiException ex) {
+            logger.error("Scale the pod failed for Deployment:" + deploymentName, ex);
+        }
     }
 
     // example usage. need to be on the Broad VPN to talk to the dev cluster because of IP whitelist
