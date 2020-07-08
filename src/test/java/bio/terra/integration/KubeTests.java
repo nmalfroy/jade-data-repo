@@ -6,7 +6,6 @@ import bio.terra.common.configuration.TestConfiguration;
 import bio.terra.common.fixtures.Names;
 import bio.terra.model.*;
 import bio.terra.service.iam.IamRole;
-import io.kubernetes.client.openapi.apis.CoreV1Api;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -105,11 +104,11 @@ public class KubeTests extends UsersBase {
 
         // let it run a few iterations
         // response  = dataRepoClient.waitForResponse(user, launchResponse, BulkLoadArrayResultModel.class, 5);
-        TimeUnit.SECONDS.sleep(10);
+        // TimeUnit.SECONDS.sleep(10);
         // scale pods
-        KubernetesClientUtils.killPod("sh");
+        // KubernetesClientUtils.killPod("sh");
         // wait
-        TimeUnit.SECONDS.sleep(30);
+       // TimeUnit.SECONDS.sleep(30);
         /*for (int i = 0; i < 4; i++) {
             try {
                 response  = dataRepoClient.waitForResponse(user, launchResponse,
@@ -124,7 +123,7 @@ public class KubeTests extends UsersBase {
             throw lastException;
         }*/
         response  = dataRepoClient.waitForResponse(user, launchResponse,
-            BulkLoadArrayResultModel.class);
+            BulkLoadArrayResultModel.class, true);
 
 
         BulkLoadArrayResultModel result = dataRepoFixtures.checkBulkLoadArraySuccess(response);

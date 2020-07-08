@@ -1,11 +1,13 @@
 package bio.terra.integration;
 
+import bio.terra.clienttests.KubernetesClientUtils;
 import bio.terra.common.auth.AuthService;
 import bio.terra.common.configuration.TestConfiguration;
 import bio.terra.model.DRSError;
 import bio.terra.model.ErrorModel;
 import bio.terra.model.JobModel;
 import bio.terra.service.filedata.DrsResponse;
+import com.fasterxml.jackson.core.JsonParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -90,7 +92,6 @@ public class DataRepoClient {
                                                    Class<T> responseClass) throws Exception {
         final int initialSeconds = 1;
         final int maxSeconds = 16;
-
         try {
             int count = 0;
             int sleepSeconds = initialSeconds;
@@ -124,37 +125,41 @@ public class DataRepoClient {
     public <T> DataRepoResponse<T> waitForResponse(TestConfiguration.User user,
                                                    DataRepoResponse<JobModel> jobModelResponse,
                                                    Class<T> responseClass,
-                                                   int secondsToWait) throws Exception {
+                                                   boolean killPods) throws Exception {
         final int initialSeconds = 1;
         final int maxSeconds = 16;
-        int totalSleep = 0;
 
-        try {
-            int count = 0;
-            int sleepSeconds = initialSeconds;
-            while (jobModelResponse.getStatusCode() == HttpStatus.ACCEPTED && totalSleep < secondsToWait) {
-                String location = getLocationHeader(jobModelResponse);
-                logger.info("try #{} for {}", ++count, location);
+        for(int i = 0; i < 6; i++) {
+            try {
+                int count = 0;
+                int sleepSeconds = initialSeconds;
+                while (jobModelResponse.getStatusCode() == HttpStatus.ACCEPTED) {
+                    String location = getLocationHeader(jobModelResponse);
+                    logger.info("try #{} for {}", ++count, location);
 
-                TimeUnit.SECONDS.sleep(sleepSeconds);
-                totalSleep += sleepSeconds;
-                jobModelResponse = get(user, location, JobModel.class);
+                    if (killPods && count == 2) {
+                        KubernetesClientUtils.killPod("sh");
+                        logger.info("killing pod");
+                    }
 
-                int nextSeconds = 2 * sleepSeconds;
-                sleepSeconds = (nextSeconds > maxSeconds) ? maxSeconds : nextSeconds;
+                    TimeUnit.SECONDS.sleep(sleepSeconds);
+                    jobModelResponse = get(user, location, JobModel.class);
+                    logger.info("Job Status: ", jobModelResponse.getResponseObject().get().getJobStatus());
+
+                    int nextSeconds = 2 * sleepSeconds;
+                    sleepSeconds = (nextSeconds > maxSeconds) ? maxSeconds : nextSeconds;
+                }
+
+                break;
+            } catch (IOException ex) {
+                logger.info("Caught interrupted exception # {}", i);
+                TimeUnit.SECONDS.sleep(30);
+            } catch (InterruptedException ex) {
+                logger.info("interrupted ex: {}", ex.getMessage());
+                ex.printStackTrace();
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("unexpected interrupt waiting for response", ex);
             }
-        } catch(IOException ex) {
-            logger.info("hitting IOException");
-            throw ex;
-        } catch (InterruptedException ex) {
-            logger.info("interrupted ex: {}", ex.getMessage());
-            ex.printStackTrace();
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("unexpected interrupt waiting for response", ex);
-        }
-
-        if (jobModelResponse.getStatusCode() == HttpStatus.ACCEPTED) {
-            return null;
         }
 
         if (jobModelResponse.getStatusCode() != HttpStatus.OK) {
