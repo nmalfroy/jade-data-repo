@@ -74,7 +74,7 @@ public class BuildSnapshotWithFiles extends SimpleDataset {
         loadSummary.getTotalFiles(),
         equalTo(loadSummary.getSucceededFiles()));
 
-    // generate load for the simple datase
+    // generate load for the simple dataset
     String testConfigGetIngestbucket = "jade-testdata";
     String fileRefName =
         "scratch/buildSnapshotWithFiles/" + FileUtils.randomizeName("input") + ".json";
