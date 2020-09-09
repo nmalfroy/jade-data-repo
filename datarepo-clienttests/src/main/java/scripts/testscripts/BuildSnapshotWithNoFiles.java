@@ -1,8 +1,5 @@
 package scripts.testscripts;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-
 import bio.terra.datarepo.api.RepositoryApi;
 import bio.terra.datarepo.client.ApiClient;
 import bio.terra.datarepo.model.BulkLoadArrayRequestModel;
@@ -14,8 +11,6 @@ import bio.terra.datarepo.model.IngestResponseModel;
 import bio.terra.datarepo.model.JobModel;
 import bio.terra.datarepo.model.SnapshotSummaryModel;
 import common.utils.FileUtils;
-import java.util.ArrayList;
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import runner.config.TestUserSpecification;
@@ -23,11 +18,17 @@ import scripts.testscripts.baseclasses.SimpleDataset;
 import scripts.utils.BulkLoadUtils;
 import scripts.utils.DataRepoUtils;
 
-public class BuildSnapshotWithFiles extends SimpleDataset {
-  private static final Logger logger = LoggerFactory.getLogger(BuildSnapshotWithFiles.class);
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+
+public class BuildSnapshotWithNoFiles extends SimpleDataset {
+  private static final Logger logger = LoggerFactory.getLogger(BuildSnapshotWithNoFiles.class);
 
   /** Public constructor so that this class can be instantiated via reflection. */
-  public BuildSnapshotWithFiles() {
+  public BuildSnapshotWithNoFiles() {
     super();
     // manipulatesKubernetes = true; // this test script manipulates Kubernetes
   }
@@ -56,7 +57,12 @@ public class BuildSnapshotWithFiles extends SimpleDataset {
     ApiClient apiClient = DataRepoUtils.getClientForTestUser(testUser, server);
     RepositoryApi repositoryApi = new RepositoryApi(apiClient);
 
+    // set fault to skip actual files
+    repositoryApi.setFault("LOAD_SKIP_FILE_LOAD", true);
+
     // set up and start bulk load job of small local files
+
+      // TODO do I even need to do this? Do I just want to use a dataset that has a ton of rows?
     BulkLoadArrayRequestModel arrayLoad =
         BulkLoadUtils.buildBulkLoadFileRequest100B(filesToLoad, billingProfileModel.getId());
     JobModel bulkLoadArrayJobResponse =
@@ -74,7 +80,7 @@ public class BuildSnapshotWithFiles extends SimpleDataset {
         loadSummary.getTotalFiles(),
         equalTo(loadSummary.getSucceededFiles()));
 
-    // generate load for the simple datase
+    // generate load for the simple dataset
     String testConfigGetIngestbucket = "jade-testdata";
     String fileRefName =
         "scratch/buildSnapshotWithFiles/" + FileUtils.randomizeName("input") + ".json";
